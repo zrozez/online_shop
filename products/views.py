@@ -8,11 +8,13 @@ from cart.models import CartProduct
 from products.models import Product
 from rest_framework.response import Response
 from rest_framework import status
+from .models import Rating
+from .serializers import RatingSerializer
 
 
 
 class ProductViewSet(ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.prefetch_related('ratings')
     serializer_class = ProductSerializer
     
 
@@ -64,3 +66,16 @@ class ProductViewSet(ModelViewSet):
                     return Response({'success': True})
             return Response({'error': 'Current cart does not contain this product'}, 
                                 status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['post'], detail=True, permission_classes=[IsAuthenticated, ])
+    def rating(self, request, *args, **kwargs):
+        product = self.get_object()
+        serializer = RatingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rating = Rating.objects.get_or_create(product=product, author=request.user, default=serializer.validated_data['value'])[0]
+
+        if not created:
+            rating.value = serializer.validated_data['value']
+            rating.save()
+        serializer = self.get_serializer(instance=product)
+        return Response(serializer.data)
